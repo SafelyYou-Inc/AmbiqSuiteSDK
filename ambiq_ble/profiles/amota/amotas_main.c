@@ -842,7 +842,7 @@ amotas_packet_handler(eAmotaCommand cmd, uint16_t len, uint8_t *buf)
 
                 amotasCb.state = AMOTA_STATE_GETTING_FW;
             }
-#ifdef AMOTA_DEBUG_ON
+
             APP_TRACE_INFO0("============= fw header start ===============");
             APP_TRACE_INFO1("encrypted = 0x%x", amotasCb.fwHeader.encrypted);
             APP_TRACE_INFO1("version = 0x%x", amotasCb.fwHeader.version);
@@ -852,7 +852,7 @@ amotas_packet_handler(eAmotaCommand cmd, uint16_t len, uint8_t *buf)
             APP_TRACE_INFO1("fwDataType = 0x%x", amotasCb.fwHeader.fwDataType);
             APP_TRACE_INFO1("storageType = 0x%x", amotasCb.fwHeader.storageType);
             APP_TRACE_INFO0("============= fw header end ===============");
-#endif // AMOTA_DEBUG_ON
+
             data[0] = ((amotasCb.newFwFlashInfo.offset) & 0xff);
             data[1] = ((amotasCb.newFwFlashInfo.offset >> 8) & 0xff);
             data[2] = ((amotasCb.newFwFlashInfo.offset >> 16) & 0xff);
