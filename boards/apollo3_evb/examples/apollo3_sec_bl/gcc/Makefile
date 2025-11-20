@@ -86,6 +86,8 @@ DEFINES+= -DAM_PACKAGE_BGA
 DEFINES+= -DAM_PART_APOLLO3
 DEFINES+= -Dgcc
 
+RTT_PATH = ../../../../../../RAK-APOLLO3-RUI/cores/apollo3/external/RTT
+
 INCLUDES = -I../../../../../CMSIS/AmbiqMicro/Include
 INCLUDES+= -I../../../../../mcu/apollo3
 INCLUDES+= -I../../../../..
@@ -94,15 +96,20 @@ INCLUDES+= -I../src
 INCLUDES+= -I../../../../../CMSIS/ARM/Include
 INCLUDES+= -I../../../../../utils
 INCLUDES+= -I../../../bsp
+INCLUDES+= -I$(RTT_PATH)/RTT
+INCLUDES+= -I$(RTT_PATH)/Config
 
 VPATH = ../src
 VPATH+=:../../../../../utils
+VPATH+=:$(RTT_PATH)/RTT
 
 SRC = apollo3_secbl.c
 SRC += am_util_delay.c
 SRC += am_util_faultisr.c
 SRC += am_util_stdio.c
 SRC += startup_gcc.c
+SRC += SEGGER_RTT.c
+SRC += SEGGER_RTT_printf.c
 
 CSRC = $(filter %.c,$(SRC))
 ASRC = $(filter %.s,$(SRC))

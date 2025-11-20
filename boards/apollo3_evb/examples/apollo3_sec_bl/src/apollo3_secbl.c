@@ -67,9 +67,13 @@
 #include "am_mcu_apollo.h"
 #include "am_bsp.h"
 #include "am_util.h"
+#include "SEGGER_RTT.h"
 
-#define MAIN_PROGRAM_ADDR_IN_FLASH  0x10000 // This would normally come from info0
+#define MAIN_PROGRAM_ADDR_IN_FLASH  0x14000 // This would normally come from info0
 //#define WHILE1
+
+// Use RTT instead of ITM for logging
+#define am_util_stdio_printf(...) SEGGER_RTT_printf(0, __VA_ARGS__)
 
 //*****************************************************************************
 //
@@ -125,16 +129,12 @@ main(void)
     //
     am_bsp_low_power_init();
 
-    //
-    // Enable debug printf messages using ITM on SWO pin
-    //
-    am_bsp_itm_printf_enable();
+    SEGGER_RTT_Init();
 
-    //
-    // Clear the terminal and print the banner.
-    //
-    am_util_stdio_terminal_clear();
-    am_util_stdio_printf("This is Apollo3 Secondary Bootloader Template Program!\r\n\r\n");
+    am_util_stdio_printf("\n\n");
+    am_util_stdio_printf("========================================\n");
+    am_util_stdio_printf("BOOTLOADER: RAK11720 SafelyYou Custom   \n");
+    am_util_stdio_printf("========================================\n");
 
     //
     // Get chip specific info
@@ -182,6 +182,9 @@ main(void)
     }
 
     // Process OTA's
+    am_util_stdio_printf("BOOTLOADER: Checking for OTA updates...\n");
+    am_util_stdio_printf("BOOTLOADER: OTAPOINTER_b.OTAVALID = %d\n", MCUCTRL->OTAPOINTER_b.OTAVALID);
+
     if ( MCUCTRL->OTAPOINTER_b.OTAVALID )
     {
         uint32_t *pOtaDesc = (uint32_t *)(MCUCTRL->OTAPOINTER & ~0x3);
@@ -191,7 +194,8 @@ main(void)
 
         // CAUTION: We can reprogram a bit in flash to 0 only once...so make sure we do not re-clear bits
 
-        am_util_stdio_printf("OTA Available - OTA Desc @0x%x\n", pOtaDesc);
+        am_util_stdio_printf("BOOTLOADER: OTA Available - OTA Desc @0x%x\n", pOtaDesc);
+        am_util_stdio_printf("BOOTLOADER: OTA Descriptor[0] = 0x%08x\n", otaImagePtr);
         // Make sure the OTA list is valid
         // Whole OTA list is skipped if it is constructed incorrectly
         while (otaImagePtr != AM_HAL_SECURE_OTA_OTA_LIST_END_MARKER)
@@ -221,7 +225,8 @@ main(void)
                 }
                 else
                 {
-                    if (AM_IMAGE_MAGIC_CUST(pComHdr->w0.s.magicNum))
+                    // Support both custom magic (0xC1-0xCE) and main image magic (0xC0)
+                    if (AM_IMAGE_MAGIC_CUST(pComHdr->w0.s.magicNum) || pComHdr->w0.s.magicNum == 0xC0)
                     {
                         //
                         // Process OTA
@@ -229,13 +234,29 @@ main(void)
                         // install
                         // Operate only in flash page multiples
                         //
-                        uint32_t size = pComHdr->w0.s.blobSize - sizeof(am_thirdparty_image_hdr_t);
+                        uint32_t headerSize;
+                        uint32_t *pSrc;
+
+                        // Determine header size based on magic number
+                        if (pComHdr->w0.s.magicNum == 0xC0)
+                        {
+                            // Main image has 256-byte header
+                            headerSize = sizeof(am_main_image_hdr_t);
+                            pSrc = (uint32_t *)((uint8_t *)pComHdr + headerSize);
+                        }
+                        else
+                        {
+                            // Custom patch has 128-byte header
+                            headerSize = sizeof(am_thirdparty_image_hdr_t);
+                            pSrc = (uint32_t *)((am_thirdparty_image_hdr_t *)pComHdr + 1);
+                        }
+
+                        uint32_t size = pComHdr->w0.s.blobSize - headerSize;
                         uint32_t numFlashPage = (size + AM_HAL_FLASH_PAGE_SIZE - 1) / AM_HAL_FLASH_PAGE_SIZE;
                         uint32_t *pDst = (uint32_t *)AM_IMAGE_GET_LOADADDR(pComHdr);
                         uint32_t tempBuf[AM_HAL_FLASH_PAGE_SIZE / 4];
-                        uint32_t *pSrc = (uint32_t *)((am_thirdparty_image_hdr_t *)pComHdr + 1);
 
-                        am_util_stdio_printf("Found OTA @ 0x%x magic 0x%x - size 0x%x to be installed at 0x%x\n", otaImagePtr, pComHdr->w0.s.magicNum, size, pDst);
+                        am_util_stdio_printf("Found OTA @ 0x%x magic 0x%x - header size 0x%x, fw size 0x%x to be installed at 0x%x\n", otaImagePtr, pComHdr->w0.s.magicNum, headerSize, size, pDst);
                         for (uint32_t i = 0; i < numFlashPage; i++)
                         {
                             memcpy(tempBuf, pSrc, AM_HAL_FLASH_PAGE_SIZE);
@@ -255,7 +276,7 @@ main(void)
                         //
                         // unknown OTA
                         //
-                        am_util_stdio_printf("Found unexpected OTA\n");
+                        am_util_stdio_printf("Found unexpected OTA magic 0x%x\n", pComHdr->w0.s.magicNum);
 
                         //
                         // Indicate Failure
@@ -292,11 +313,12 @@ main(void)
     //
     // Clear OTA_POINTER
     //
+    am_util_stdio_printf("BOOTLOADER: Clearing OTA pointer\n");
     MCUCTRL->OTAPOINTER = 0;
 
     //
     // Validate main image
-    // This is only a place holder - Assumes raw main image @ 0x10000
+    // This is only a place holder - Assumes raw main image @ 0x14000
     // Users can select any image format
     // Depending on the custom image format - more elaborate validation (including signature verification) can be done
     //
@@ -304,6 +326,11 @@ main(void)
     uint32_t sp = *((uint32_t *)imageAddr);
     uint32_t reset = *((uint32_t *)(imageAddr + 4));
     uint32_t *pVtor = 0;
+
+    am_util_stdio_printf("BOOTLOADER: Checking main image at 0x%x\n", imageAddr);
+    am_util_stdio_printf("BOOTLOADER:   SP:    0x%08x (expected: 0x%08x - 0x%08x)\n", sp, SRAM_BASEADDR, SRAM_BASEADDR + sDevice.ui32SRAMSize);
+    am_util_stdio_printf("BOOTLOADER:   Reset: 0x%08x (expected: 0x%08x - 0x%08x)\n", reset, imageAddr, sDevice.ui32FlashSize);
+    am_util_stdio_printf("BOOTLOADER:   Thumb bit: %d (expected: 1)\n", reset & 0x1);
 
     //
     // Make sure the SP & Reset vector are sane
@@ -315,13 +342,13 @@ main(void)
         (reset < imageAddr)                             || \
         (reset >= sDevice.ui32FlashSize))
     {
-        am_util_stdio_printf("Invalid main image\n");
+        am_util_stdio_printf("BOOTLOADER: Invalid main image!\n");
     }
     else
     {
-        am_util_stdio_printf("Found valid main image - SP:0x%x RV:0x%x\n", sp, reset);
+        am_util_stdio_printf("BOOTLOADER: Found valid main image - SP:0x%x RV:0x%x\n", sp, reset);
         pVtor = (uint32_t *)imageAddr;
-        am_util_stdio_printf("Will transfer control over to this image after locking things down\n\n\n\n");
+        am_util_stdio_printf("BOOTLOADER: Jumping to application...\n\n");
     }
 
     //
