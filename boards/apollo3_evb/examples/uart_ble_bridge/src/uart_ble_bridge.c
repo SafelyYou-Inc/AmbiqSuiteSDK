@@ -57,6 +57,7 @@
 #include "am_mcu_apollo.h"
 #include "am_bsp.h"
 #include "am_util.h"
+#include "SEGGER_RTT.h"
 
 //*****************************************************************************
 //
@@ -117,9 +118,9 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
 #ifndef AM_DEBUG_BLE_TIMING
     for ( uint32_t i = 0; i < len; i++ )
     {
-        am_util_stdio_printf("%02x ", pBuffer[i]);
+        SEGGER_RTT_printf(0, "%02x ", pBuffer[i]);
     }
-    am_util_stdio_printf("\n");
+    SEGGER_RTT_printf(0, "\n");
 #endif
 
     carrier_wave_mode = 0;
@@ -177,13 +178,13 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
                 {
                     am_hal_ble_tx_power_set(g_pvBLEHandle, (uint8_t)value);
 #ifndef AM_DEBUG_BLE_TIMING
-                    am_util_stdio_printf("TX Power Setting Command OK\n");
+                    SEGGER_RTT_printf(0, "TX Power Setting Command OK\n");
 #endif
                 }
                 else
                 {
 #ifndef AM_DEBUG_BLE_TIMING
-                    am_util_stdio_printf("Invalid TX Power Value %d\n", value);
+                    SEGGER_RTT_printf(0, "Invalid TX Power Value %d\n", value);
 #endif
                 }
             }
@@ -193,7 +194,7 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
             {
                 am_util_ble_crystal_trim_set(g_pvBLEHandle, value);
 #ifndef AM_DEBUG_BLE_TIMING
-                am_util_stdio_printf("32MHz Crystal Trim Command OK\n");
+                SEGGER_RTT_printf(0, "32MHz Crystal Trim Command OK\n");
 #endif
             }
             break;
@@ -202,7 +203,7 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
             {
                 am_hal_ble_transmitter_modex_set(g_pvBLEHandle, (uint8_t)value);
 #ifndef AM_DEBUG_BLE_TIMING
-                am_util_stdio_printf("Modulation Index Command OK\n");
+                SEGGER_RTT_printf(0, "Modulation Index Command OK\n");
 #endif
             }
             break;
@@ -211,7 +212,7 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
             {
                 am_util_ble_transmitter_control_ex(g_pvBLEHandle, (uint8_t)value);
 #ifndef AM_DEBUG_BLE_TIMING
-                am_util_stdio_printf("generate carrier wave OK\n");
+                SEGGER_RTT_printf(0, "generate carrier wave OK\n");
 #endif
             }
             break;
@@ -220,7 +221,7 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
             {
                 am_util_ble_set_constant_transmission_ex(g_pvBLEHandle, (uint8_t)value);
 #ifndef AM_DEBUG_BLE_TIMING
-                am_util_stdio_printf("generate constant moderated signal wave OK\n");
+                SEGGER_RTT_printf(0, "generate constant moderated signal wave OK\n");
 #endif
             }
             break;
@@ -228,7 +229,7 @@ static void cmd_handler(uint8_t *pBuffer, uint32_t len)
             default:
             {
 #ifndef AM_DEBUG_BLE_TIMING
-                am_util_stdio_printf("Invalid UART Special Command %s\r\n", pBuffer);
+                SEGGER_RTT_printf(0, "Invalid UART Special Command %s\r\n", pBuffer);
 #endif
             }
             break;
@@ -320,6 +321,14 @@ void am_uart1_isr(void)
 // Main
 //
 //*****************************************************************************
+
+
+#define DEBUG_GPIO_HIGH(gpio)   am_hal_gpio_state_write(gpio, AM_HAL_GPIO_OUTPUT_SET)
+#define DEBUG_GPIO_LOW(gpio)    am_hal_gpio_state_write(gpio, AM_HAL_GPIO_OUTPUT_CLEAR)
+#define RED_GPIO     31
+#define GREEN_GPIO   32
+#define BLUE_GPIO    13
+
 int
 main(void)
 {
@@ -327,6 +336,7 @@ main(void)
     uint32_t ui32Status;
     uint32_t ui32IntStatus;
 
+    SEGGER_RTT_Init();
     //
     // Default setup.
     //
@@ -360,8 +370,22 @@ main(void)
     // Enable the ITM
     //
     am_bsp_itm_printf_enable();
-    am_util_stdio_printf("Apollo3 UART to SPI Bridge\n");
+    SEGGER_RTT_printf(0, "Apollo3 UART to BLE Bridge\n");
 #endif // AM_DEBUG_BLE_TIMING
+
+    am_hal_gpio_pinconfig(RED_GPIO, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(RED_GPIO, AM_HAL_GPIO_OUTPUT_TRISTATE_DISABLE);
+    am_hal_gpio_pinconfig(GREEN_GPIO, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(GREEN_GPIO, AM_HAL_GPIO_OUTPUT_TRISTATE_DISABLE);
+    am_hal_gpio_pinconfig(BLUE_GPIO, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(BLUE_GPIO, AM_HAL_GPIO_OUTPUT_TRISTATE_DISABLE);
+    for (int i = 0; i < 3; i++)
+    {
+        DEBUG_GPIO_HIGH(GREEN_GPIO);
+        am_util_delay_ms(200);
+        DEBUG_GPIO_LOW(GREEN_GPIO);
+        am_util_delay_ms(200);
+    }
 
     //
     // Start the BLE interface.
@@ -426,11 +450,23 @@ main(void)
         .ui32RxBufferSize = 0,
     };
 
+    const am_hal_gpio_pincfg_t AM_BSP_GPIO_COM_UART_TX_t =
+    {
+        .uFuncSel            = AM_HAL_PIN_39_UART0TX,
+        .eDriveStrength      = AM_HAL_GPIO_PIN_DRIVESTRENGTH_2MA
+    };
+    const am_hal_gpio_pincfg_t AM_BSP_GPIO_COM_UART_RX_t =
+    {
+        .uFuncSel            = AM_HAL_PIN_40_UART0RX
+    };
+
     am_hal_uart_initialize(UART_HCI_BRIDGE, &g_pvUART);
     am_hal_uart_power_control(g_pvUART, AM_HAL_SYSCTRL_WAKE, false);
     am_hal_uart_configure(g_pvUART, &sUartConfig);
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_TX, g_AM_BSP_GPIO_COM_UART_TX);
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_RX, g_AM_BSP_GPIO_COM_UART_RX);
+    am_hal_gpio_pinconfig(39, AM_BSP_GPIO_COM_UART_TX_t);
+    am_hal_gpio_pinconfig(40, AM_BSP_GPIO_COM_UART_RX_t);
+    // am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_TX, g_AM_BSP_GPIO_COM_UART_TX);
+    // am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_RX, g_AM_BSP_GPIO_COM_UART_RX);
 
     //
     // Make sure to enable the interrupts for RX, since the HAL doesn't already
@@ -445,8 +481,19 @@ main(void)
     //
     // Loop forever.
     //
+    int count = 0;
+    int val = 0;
     while (1)
     {
+        if(++count >= 40000) {
+            count = 0;
+            val ^= 1;
+            if(val)
+                DEBUG_GPIO_HIGH(BLUE_GPIO);
+            else
+                DEBUG_GPIO_LOW(BLUE_GPIO);
+        }
+
         //
         // Check for incoming traffic from either the UART or the BLE interface.
         //
@@ -497,12 +544,22 @@ main(void)
                 //
                 // Handle the error here.
                 //
-                am_util_stdio_printf("Read from BLE Controller failed\n");
-                while(1);
+                SEGGER_RTT_printf(0, "Read from BLE Controller failed\n");
+                DEBUG_GPIO_LOW(GREEN_GPIO);
+                DEBUG_GPIO_LOW(BLUE_GPIO);
+                while(1) {
+                    DEBUG_GPIO_HIGH(RED_GPIO);
+                    am_util_delay_ms(250);
+                    DEBUG_GPIO_LOW(RED_GPIO);
+                    am_util_delay_ms(250);
+                }
             }
         }
         else if (g_bRxTimeoutFlag)
         {
+            DEBUG_GPIO_HIGH(RED_GPIO);
+            am_util_delay_ms(250);
+            DEBUG_GPIO_LOW(RED_GPIO);
             //
             // If we have incoming UART traffic, the interrupt handler will
             // read it out for us, but we will need to echo it back out to the
@@ -514,7 +571,7 @@ main(void)
                                               g_psWriteData.words,
                                               g_ui32UARTRxIndex);
 
-                //am_util_stdio_printf("\r\nWaiting response...");
+                //SEGGER_RTT_printf(0, "\r\nWaiting response...");
                 uint32_t wakeupCount = 0;
 
                  while( !BLEIF->BSTATUS_b.BLEIRQ )
@@ -526,8 +583,15 @@ main(void)
                      am_hal_ble_wakeup_set(g_pvBLEHandle, 0);
                      if (wakeupCount++ >1000)
                      {
-                        am_util_stdio_printf("\r\n BLE controller response timeout! wakeupCount=%d,", wakeupCount);
-                        while(1);
+                        SEGGER_RTT_printf(0, "\r\n BLE controller response timeout! wakeupCount=%d,", wakeupCount);
+                        DEBUG_GPIO_LOW(GREEN_GPIO);
+                        DEBUG_GPIO_LOW(BLUE_GPIO);
+                        while(1) {
+                            DEBUG_GPIO_HIGH(RED_GPIO);
+                            am_util_delay_ms(500);
+                            DEBUG_GPIO_LOW(RED_GPIO);
+                            am_util_delay_ms(500);
+                        }
                      };
 
                   } //waiting command response
