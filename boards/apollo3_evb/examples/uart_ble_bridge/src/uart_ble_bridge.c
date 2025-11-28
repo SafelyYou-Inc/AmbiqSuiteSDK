@@ -557,9 +557,6 @@ main(void)
         }
         else if (g_bRxTimeoutFlag)
         {
-            DEBUG_GPIO_HIGH(RED_GPIO);
-            am_util_delay_ms(250);
-            DEBUG_GPIO_LOW(RED_GPIO);
             //
             // If we have incoming UART traffic, the interrupt handler will
             // read it out for us, but we will need to echo it back out to the

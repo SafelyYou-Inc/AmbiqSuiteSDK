@@ -73,6 +73,57 @@ def hci_le_test_end(ser, print_uart=False):
     send_hci(ser, "01 1F 20 00", print_uart)
 
 
+CMD_TO_PAYLOAD_VAL_MAP = {
+    "LE_PRBS9": 0x00,
+    "LE_11110000": 0x01,
+    "LE_10101010": 0x02,
+    "cont_carrier": 0x08,
+    "cont_mod": 0x09
+}
+
+CHANNEL_TO_MHZ_MAP = {
+    0: 2402,
+    1: 2404,
+    2: 2406,
+    3: 2408,
+    4: 2410,
+    5: 2412,
+    6: 2414,
+    7: 2416,
+    8: 2418,
+    9: 2420,
+    10: 2422,
+    11: 2424,
+    12: 2426,
+    13: 2428,
+    14: 2430,
+    15: 2432,
+    16: 2434,
+    17: 2436,
+    18: 2438,
+    19: 2440,
+    20: 2442,
+    21: 2444,
+    22: 2446,
+    23: 2448,
+    24: 2450,
+    25: 2452,
+    26: 2454,
+    27: 2456,
+    28: 2458,
+    29: 2460,
+    30: 2462,
+    31: 2464,
+    32: 2466,
+    33: 2468,
+    34: 2470,
+    35: 2472,
+    36: 2474,
+    37: 2476,
+    38: 2478,
+    39: 2480
+}
+
 # ---------------------------
 #  Main CLI Tool
 # ---------------------------
@@ -88,7 +139,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="HCI UART CLI Tool", exit_on_error=False)
     parser.add_argument("--port", type=str, default="/dev/ttyUSB0", help="UART port - Example: \"COM1\" (Windows) or \"/dev/ttyUSB0\" (Linux/macOS), default: /dev/ttyUSB0")
     parser.add_argument("--cmd", type=str, choices=["LE_PRBS9", "LE_11110000", "LE_10101010", "cont_carrier", "cont_mod", "rx_test"], required=True, help="Command to execute (required)")
-    parser.add_argument("--channel", type=int, choices=range(0, 40), required=True, help="Channel number: 0-39 for TX or RX tests (required)")
+    parser.add_argument("--channel", type=int, choices=range(0, 40), help="Channel number: 0-39 for TX or RX tests")
+    parser.add_argument("--channel_list", type=str, help="Comma separated list of channels for TX or RX tests (overrides --channel)")
+    parser.add_argument("--channel_all", action="store_true", help="Uses all channels for TX or RX tests (overrides --channel and --channel_list)")
     parser.add_argument("--duration_ms", type=int, default=5000, help="Test duration in milliseconds - default: 5000 ms")
     parser.add_argument("--print_uart", action="store_true", help="Print UART TX/RX data")
 
@@ -105,30 +158,46 @@ if __name__ == "__main__":
         print(command_help)
         exit(1)
 
+    # Process channel arguments
+    if args.channel is None and args.channel_list is None and args.channel_all is None:
+        print("Invalid/missing arguments...")
+        parser.print_help()
+        print(command_help)
+        exit(1)
+
+    if args.channel_all:
+        channels = list(range(0, 40))
+    elif args.channel_list:
+        try:
+            channels = [int(ch.strip()) for ch in args.channel_list.split(",") if 0 <= int(ch.strip()) <= 39]
+            if not channels:
+                raise ValueError
+        except ValueError:
+            print("Invalid channel list. Please provide a comma-separated list of integers between 0 and 39.")
+            exit(1)
+    else:
+        channels = [args.channel]
+
     # Open UART
     ser = open_uart(args.port, 115200)
 
     # Reset EUT
     print("Resetting device...")
     hci_reset(ser, args.print_uart)
-    time.sleep(0.25)
 
-    print(f"Running {args.cmd} on channel {args.channel} for {args.duration_ms} ms")
-    if args.cmd == "rx_test":
-        hci_le_receiver_test(ser, args.channel, args.print_uart)
-    else:
-        cmd_payload_map = {
-            "LE_PRBS9": 0x00,
-            "LE_11110000": 0x01,
-            "LE_10101010": 0x02,
-            "cont_carrier": 0x08,
-            "cont_mod": 0x09
-        }
-        hci_le_transmitter_test(ser, args.channel, cmd_payload_map.get(args.cmd), args.print_uart)
-    time.sleep(args.duration_ms / 1000)
+    print("[INFO] Test start")
+    for ch in channels:
+        print(f"Running {args.cmd} on channel {ch} ({CHANNEL_TO_MHZ_MAP.get(ch)} MHz) for {args.duration_ms} ms")
+        if args.cmd == "rx_test":
+            hci_le_receiver_test(ser, ch, args.print_uart)
+        else:
+            hci_le_transmitter_test(ser, ch, CMD_TO_PAYLOAD_VAL_MAP.get(args.cmd), args.print_uart)
 
-    # End test
-    print("Ending test...")
-    hci_le_test_end(ser, args.print_uart)
+        # Run test for specified duration
+        time.sleep(args.duration_ms / 1000)
 
+        # End test
+        hci_le_test_end(ser, args.print_uart)
+
+    print("[INFO] Test end")
     ser.close()
