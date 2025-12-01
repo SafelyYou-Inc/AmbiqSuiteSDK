@@ -159,7 +159,7 @@ if __name__ == "__main__":
         exit(1)
 
     # Process channel arguments
-    if args.channel is None and args.channel_list is None and args.channel_all is None:
+    if args.channel is None and args.channel_list is None and args.channel_all is False:
         print("Invalid/missing arguments...")
         parser.print_help()
         print(command_help)
