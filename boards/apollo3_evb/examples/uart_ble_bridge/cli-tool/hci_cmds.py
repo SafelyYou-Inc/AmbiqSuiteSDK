@@ -181,12 +181,12 @@ if __name__ == "__main__":
     # Open UART
     ser = open_uart(args.port, 115200)
 
-    # Reset EUT
-    print("Resetting device...")
-    hci_reset(ser, args.print_uart)
-
     print("[INFO] Test start")
     for ch in channels:
+        # Reset BLE module before each test
+        print("Sending reset to BLE module...")
+        hci_reset(ser, args.print_uart)
+
         print(f"Running {args.cmd} on channel {ch} ({CHANNEL_TO_MHZ_MAP.get(ch)} MHz) for {args.duration_ms} ms")
         if args.cmd == "rx_test":
             hci_le_receiver_test(ser, ch, args.print_uart)
@@ -196,8 +196,13 @@ if __name__ == "__main__":
         # Run test for specified duration
         time.sleep(args.duration_ms / 1000)
 
-        # End test
-        hci_le_test_end(ser, args.print_uart)
+        # End test (in case of continuous carrier, do not send reset as it crashes the BLE module)
+        if(args.cmd != "cont_carrier"):
+            hci_le_test_end(ser, args.print_uart)
+
+    # Reset BLE module after all tests
+    print("Sending final reset to BLE module...")
+    hci_reset(ser, args.print_uart)
 
     print("[INFO] Test end")
     ser.close()
