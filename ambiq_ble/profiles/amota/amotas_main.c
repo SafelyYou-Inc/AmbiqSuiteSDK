@@ -422,7 +422,7 @@ amotas_set_fw_addr(void)
     {
         // storage in internal flash
         uint32_t storeAddr = (AMOTA_INT_FLASH_OTA_ADDRESS + AM_HAL_FLASH_PAGE_SIZE - 1) & ~(AM_HAL_FLASH_PAGE_SIZE - 1);
-        uint32_t maxSize = AMOTA_INT_FLASH_OTA_MAX_SIZE & ~(AM_HAL_FLASH_PAGE_SIZE - 1);
+        uint32_t maxSize = MCU_SYS_CONFIG_NVM_ADDR - MCU_FLASH_OTA_ADDRESS;
 
 #if !defined(AM_PART_APOLLO3) && !defined(AM_PART_APOLLO3P) // There is no easy way to get the information about the main image in Apollo3
         uint32_t ui32CurLinkAddr;
