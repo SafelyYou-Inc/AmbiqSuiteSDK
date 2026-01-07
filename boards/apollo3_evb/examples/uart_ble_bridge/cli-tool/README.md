@@ -7,13 +7,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run tool
+## Tool usage
 ### Source environment (do only once)
 ```bash
 source .venv/bin/activate
 ```
 
-### Source environment
+### Run tool
 ```bash
 python3 hci_cmds.py
 ```
