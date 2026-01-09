@@ -87,6 +87,8 @@ DEFINES+= -DAM_PACKAGE_BGA
 DEFINES+= -Dgcc
 
 INCLUDES = -I../src
+INCLUDES+= -I../RTT/RTT
+INCLUDES+= -I../RTT/Config
 INCLUDES+= -I../../../../../devices
 INCLUDES+= -I../../../../../mcu/apollo3
 INCLUDES+= -I../../../../..
@@ -98,8 +100,11 @@ INCLUDES+= -I../../../../../utils
 VPATH = ../../../../../devices
 VPATH+=:../src
 VPATH+=:../../../../../utils
+VPATH+=:../RTT/RTT
 
 SRC = uart_ble_bridge.c
+SRC += SEGGER_RTT_printf.c
+SRC += SEGGER_RTT.c
 SRC += am_util_ble.c
 SRC += am_util_delay.c
 SRC += am_util_faultisr.c
