@@ -481,8 +481,8 @@ const am_hal_gpio_pincfg_t g_AM_BSP_GPIO_IOM2_SCK =
 const am_hal_gpio_pincfg_t g_AM_BSP_GPIO_IOM2_SCL =
 {
     .uFuncSel            = AM_HAL_PIN_27_M2SCL,
-    .ePullup             = AM_HAL_GPIO_PIN_PULLUP_1_5K,
-    .eDriveStrength      = AM_HAL_GPIO_PIN_DRIVESTRENGTH_12MA,
+    .ePullup             = AM_HAL_GPIO_PIN_PULLUP_24K,
+    .eDriveStrength      = AM_HAL_GPIO_PIN_DRIVESTRENGTH_2MA,
     .eGPOutcfg           = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN,
     .bIomMSPIn           = 1,
     .uIOMnum             = 2
@@ -496,8 +496,8 @@ const am_hal_gpio_pincfg_t g_AM_BSP_GPIO_IOM2_SCL =
 const am_hal_gpio_pincfg_t g_AM_BSP_GPIO_IOM2_SDA =
 {
     .uFuncSel            = AM_HAL_PIN_25_M2SDAWIR3,
-    .ePullup             = AM_HAL_GPIO_PIN_PULLUP_1_5K,
-    .eDriveStrength      = AM_HAL_GPIO_PIN_DRIVESTRENGTH_12MA,
+    .ePullup             = AM_HAL_GPIO_PIN_PULLUP_24K,
+    .eDriveStrength      = AM_HAL_GPIO_PIN_DRIVESTRENGTH_2MA,
     .eGPOutcfg           = AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN,
     .bIomMSPIn           = 1,
     .uIOMnum             = 2
